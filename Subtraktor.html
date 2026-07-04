@@ -1,0 +1,1976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subtraktor: Tonverk .eldrum Kit Creator</title>
+    <!-- Include JSZip for bundled zip export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #121214;
+            --bg-surface: #1a1a1e;
+            --bg-slot: #222227;
+            --border-color: #33333b;
+            --accent-color: #ff5c00;
+            --accent-hover: #ff7c30;
+            --text-main: #e2e2e9;
+            --text-muted: #8a8a93;
+            --inspect-color: #00a8ff;
+            --danger-color: #ff3333;
+        }
+
+        /* Monochrome Theme overrides */
+        [data-theme="monochrome"] {
+            --bg-primary: #0d0d0d;
+            --bg-surface: #171717;
+            --bg-slot: #222222;
+            --border-color: #333333;
+            --accent-color: #f5f5f7;
+            --accent-hover: #ffffff;
+            --text-main: #f5f5f7;
+            --text-muted: #8e8e93;
+            --inspect-color: #8e8e93;
+            --danger-color: #ff453a;
+        }
+
+        /* Neon Teal Theme overrides */
+        [data-theme="neon-teal"] {
+            --bg-primary: #050d12;
+            --bg-surface: #0a1921;
+            --bg-slot: #112833;
+            --border-color: #1b3d4d;
+            --accent-color: #00e5ff;
+            --accent-hover: #33ebff;
+            --text-main: #e0f7fa;
+            --text-muted: #64b5f6;
+            --inspect-color: #ff007f;
+            --danger-color: #ff1744;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+            transition: background-color 0.3s ease;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            margin-top: 0;
+            margin-bottom: 12px;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .shortcuts-tip {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: normal;
+        }
+
+        /* Collapsible Setup Advisory Container */
+        .setup-advisory-container {
+            background-color: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent-color);
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            flex-shrink: 0;
+            transition: border-color 0.3s ease;
+        }
+
+        .setup-advisory-container[open] {
+            background-color: rgba(255, 255, 255, 0.04);
+        }
+
+        .setup-advisory-container summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .setup-advisory-container summary {
+            list-style: none;
+            cursor: pointer;
+            font-weight: bold;
+            color: var(--accent-color);
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+        }
+
+        .setup-advisory-container summary .toggle-icon {
+            transition: transform 0.2s ease;
+            font-size: 0.75rem;
+        }
+
+        .setup-advisory-container[open] summary .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .setup-advisory-container strong {
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+
+        .setup-advisory-container ul {
+            margin: 4px 0 0 0;
+            padding-left: 20px;
+            color: var(--text-main);
+        }
+
+        .setup-advisory-container li {
+            margin-bottom: 2px;
+        }
+
+        .setup-advisory-container code {
+            font-family: monospace;
+            background-color: var(--bg-slot);
+            padding: 2px 6px;
+            border-radius: 3px;
+            border: 1px solid var(--border-color);
+            color: #fff;
+        }
+
+        .workspace {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .sidebar {
+            width: 310px;
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .custom-file-btn {
+            background-color: var(--accent-color);
+            color: #000;
+            font-weight: 600;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            display: block;
+            transition: opacity 0.2s;
+        }
+
+        .custom-file-btn.secondary {
+            background-color: transparent;
+            border: 1px solid var(--inspect-color);
+            color: var(--inspect-color);
+        }
+
+        .file-input-wrapper:hover .custom-file-btn {
+            opacity: 0.9;
+        }
+
+        .panel-action-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+
+        .panel-action-btn:hover:not(:disabled) {
+            border-color: var(--danger-color);
+            color: var(--danger-color);
+            background-color: rgba(255, 51, 51, 0.05);
+        }
+
+        .panel-action-btn.inspect-init:hover {
+            border-color: var(--inspect-color);
+            color: var(--inspect-color);
+            background-color: rgba(0, 168, 255, 0.05);
+        }
+
+        .panel-action-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .pool-container {
+            flex: 1;
+            overflow-y: auto;
+            border: 2px dashed var(--border-color);
+            border-radius: 4px;
+            padding: 8px;
+            margin-top: 10px;
+            background-color: rgba(0,0,0,0.15);
+            transition: border-color 0.2s, background-color 0.2s;
+        }
+
+        .pool-item {
+            background-color: var(--bg-slot);
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            cursor: grab;
+            font-size: 0.85rem;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+        }
+
+        .pool-item-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .pool-item .serial-no {
+            color: var(--text-muted);
+            font-family: monospace;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .file-name-text {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex-grow: 1;
+        }
+
+        .pool-item.assigned {
+            border-color: var(--accent-color);
+            background-color: rgba(255, 92, 0, 0.12);
+            color: #fff;
+        }
+
+        .pool-item.assigned .serial-no {
+            color: var(--accent-color);
+        }
+
+        .delete-pool-item-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 0 4px;
+            line-height: 1;
+        }
+
+        .delete-pool-item-btn:hover {
+            color: var(--danger-color);
+        }
+
+        .main-panels-container {
+            flex: 1;
+            display: flex;
+            gap: 20px;
+        }
+
+        .panel {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s ease;
+        }
+
+        .panel.active-panel {
+            flex: 2;
+        }
+
+        .panel.inspector-panel {
+            flex: 1;
+            background-color: rgba(26,26,30,0.4);
+        }
+
+        .panel-title-bar {
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 28px;
+        }
+
+        .panel-title-bar.left-title { color: var(--accent-color); }
+        .panel-title-bar.right-title { color: var(--inspect-color); }
+
+        /* Bank Selector Tab Styling */
+        .bank-tabs-wrapper {
+            display: flex;
+            gap: 4px;
+        }
+
+        .bank-tab {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 4px 10px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .bank-tab.active {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #000;
+        }
+
+        .bank-tab:hover:not(.active) {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .slots-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            flex: 1;
+            align-content: start;
+            overflow-y: auto;
+            margin-bottom: 16px;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+            border-radius: 6px;
+        }
+
+        .slot {
+            background-color: var(--bg-slot);
+            border: 2px dashed var(--border-color);
+            border-radius: 6px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 54px;
+            box-sizing: border-box;
+            gap: 10px;
+            --slot-color: var(--border-color); /* Default color fallback override */
+        }
+
+        .slot.drag-over {
+            border-color: var(--accent-color);
+            background-color: rgba(255, 92, 0, 0.05);
+        }
+
+        .slot-identity {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .slot-no {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--slot-color);
+            color: var(--slot-color);
+            font-family: monospace;
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+
+        .slot.occupied .slot-no {
+            background-color: var(--slot-color);
+            color: #000;
+        }
+
+        .slot.static-inspect-mode.occupied-inspect .slot-no {
+            background-color: var(--inspect-color);
+            color: #000;
+        }
+
+        .slot-content {
+            font-size: 0.95rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+
+        .slot-empty {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .slot-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .velocity-container {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .slot.occupied .velocity-container {
+            display: flex;
+        }
+
+        .velocity-input {
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            border-radius: 4px;
+            padding: 2px 6px;
+            width: 46px;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        .clear-slot-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0;
+            display: none;
+        }
+
+        .slot.occupied .clear-slot-btn {
+            display: block;
+        }
+
+        .slot.occupied {
+            border-style: solid;
+            border-color: var(--border-color);
+            cursor: grab;
+        }
+
+        .slot.static-inspect-mode {
+            border-style: dashed;
+            border-color: var(--border-color);
+        }
+        .slot.static-inspect-mode.occupied-inspect {
+            border-style: solid;
+        }
+        .inspect-val-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-family: monospace;
+        }
+
+        .export-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border-color);
+            padding-top: 16px;
+        }
+
+        .naming-container {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .naming-container label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .kit-name-input {
+            background-color: var(--bg-slot);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px 14px;
+            border-radius: 4px;
+            font-size: 1rem;
+            width: 240px;
+        }
+
+        .export-btn {
+            background-color: transparent;
+            border: 2px solid var(--accent-color);
+            color: var(--accent-color);
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .export-btn:hover:not(:disabled) {
+            background-color: var(--accent-color);
+            color: #000;
+        }
+
+        .export-btn:disabled {
+            border-color: var(--text-muted);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        /* Waveform Draggable handles and cursor hints */
+        .micro-waveform {
+            cursor: ew-resize;
+            touch-action: none; /* Prevents background page scrolling during touch-slide edits */
+        }
+
+        .slot-duration {
+            cursor: pointer;
+            user-select: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1 style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <span>Subtraktor <span class="shortcuts-tip">(Undo/Redo: 10 Steps)</span></span>
+        <!-- QoL Floating Theme Selector -->
+        <div class="theme-selector-container" style="display: flex; align-items: center; gap: 8px;">
+            <label style="font-size: 0.8rem; color: var(--text-muted); font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em;">Theme:</label>
+            <select id="theme-select" style="background: var(--bg-surface); border: 1px solid var(--border-color); color: var(--text-main); font-size: 0.8rem; border-radius: 4px; padding: 4px 8px; cursor: pointer; outline: none; font-weight: 600;">
+                <option value="orange">Elektron Orange</option>
+                <option value="monochrome">Monochrome</option>
+                <option value="neon-teal">Neon Teal</option>
+            </select>
+        </div>
+    </h1>
+
+    <!-- Collapsible Setup Advisory Container -->
+    <details class="setup-advisory-container">
+        <summary>
+            <span>⚠️ More Information: SD Card Setup & Transcoder Details</span>
+            <span class="toggle-icon">▼</span>
+        </summary>
+        <div style="margin-top: 12px; border-top: 1px solid rgba(255, 92, 0, 0.2); padding-top: 12px;">
+            <strong>📂 Mandatory Tonverk Engine SD Card Placement:</strong>
+            <ul>
+                <li>Extract the downloaded <code>.zip</code> package directly to your Tonverk SD card [3.4.4].</li>
+                <li>The final path to the folder on your SD card must look like: <code>User/Drum Sets/<span class="adv-folder">MyCustomKit</span>/</code> [3.4.4]</li>
+                <li>This folder will hold both your <code>.eldrum</code> file and the associated converted <code>.wav</code> files flatly together inside it [3.4.4].</li>
+            </ul>
+            <strong style="margin-top: 12px; display: block;">🎵 Built-in Sample Transcoder Details:</strong>
+            <ul>
+                <li><strong>Accepted Input Formats:</strong> WAV, MP3, FLAC, AIFF, M4A, OGG, AAC, OPUS. Drag and drop any of these directly.</li>
+                <li><strong>The Conversion Process:</strong> Every sample is parsed in-browser and converted to a standardized <strong>16-bit, 48,000 Hz, Stereo Interleaved LPCM WAV</strong> inside the exported ZIP [3.4.4].</li>
+                <li><strong>Why this is ideal:</strong> Tonverk's hardware playback engine runs natively at 48 kHz [3.4.4]. Standardizing files beforehand guarantees click-free playback, minimizes hardware resampling latencies, and avoids pitch shifting artifacts [3.4.4].</li>
+                <li><strong>Duplicates Guard:</strong> Files with identical sanitized names are automatically skipped during drag-and-drop imports to prevent repeating entries in your pool.</li>
+            </ul>
+        </div>
+    </details>
+
+    <div class="workspace">
+        <div class="sidebar">
+            <!-- Global Preview Volume Control -->
+            <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <span>Preview Volume</span>
+                    <span id="volume-val">20%</span>
+                </div>
+                <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="0.20" style="width: 100%; accent-color: var(--accent-color); margin-top: 4px; cursor: pointer;">
+            </div>
+
+            <!-- Absolute Layered Drag-And-Drop Handshake elements -->
+            <div class="file-input-wrapper">
+                <div class="custom-file-btn">Choose or Drop Samples</div>
+                <input type="file" id="wav-loader" multiple accept="audio/*, .aif, .aiff">
+            </div>
+            <button class="panel-action-btn" id="clear-dump-btn" style="margin-bottom: 10px; width: 100%;">Clear Current Bank</button>
+            
+            <!-- Pool Bank Selector Tabs -->
+            <div class="bank-tabs-wrapper" style="margin-bottom: 10px; justify-content: space-between; width: 100%;">
+                <button class="bank-tab active" data-pool-bank="A" style="flex: 1; text-align: center;">A</button>
+                <button class="bank-tab" data-pool-bank="B" style="flex: 1; text-align: center;">B</button>
+                <button class="bank-tab" data-pool-bank="C" style="flex: 1; text-align: center;">C</button>
+                <button class="bank-tab" data-pool-bank="D" style="flex: 1; text-align: center;">D</button>
+            </div>
+
+            <div class="pool-container" id="pool-container">
+                <div id="pool-placeholder" style="color: var(--text-muted); text-align: center; margin-top: 40px; font-size: 0.9rem; pointer-events: none;">
+                    Drag & Drop Audio Files here from File Explorer
+                </div>
+            </div>
+        </div>
+
+        <div class="main-panels-container">
+            <div class="panel active-panel">
+                <div class="panel-title-bar left-title">
+                    <span>Active Target Profile</span>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-left: auto;">
+                        <!-- Visible Undo/Redo Buttons -->
+                        <div style="display: flex; gap: 4px;">
+                            <button class="panel-action-btn" id="undo-btn" title="Undo (Ctrl+Z)" style="padding: 4px 8px; font-size: 0.85rem;" disabled>↶</button>
+                            <button class="panel-action-btn" id="redo-btn" title="Redo (Ctrl+Y)" style="padding: 4px 8px; font-size: 0.85rem;" disabled>↷</button>
+                        </div>
+                        <button class="panel-action-btn" id="roll-kit-btn" style="color: var(--accent-color); border-color: var(--accent-color);">🎲 Roll Kit</button>
+                        <button class="panel-action-btn" id="clear-slots-btn">Reset All Slots</button>
+                    </div>
+                </div>
+                <div class="slots-grid" id="active-slots-grid"></div>
+                
+                <div class="export-bar">
+                    <div class="naming-container">
+                        <label for="kit-name">Subtrack Kit Name</label>
+                        <input type="text" id="kit-name" class="kit-name-input" value="MyCustomKit">
+                    </div>
+                    <!-- Master Gain Normalization Checkbox -->
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-muted); margin-right: 16px;">
+                        <input type="checkbox" id="normalize-check" style="accent-color: var(--accent-color); cursor: pointer;">
+                        <label for="normalize-check" style="cursor: pointer; user-select: none;">Normalize audio on export (-1dB)</label>
+                    </div>
+                    <button class="export-btn" id="export-btn">Export Kit (.zip)</button>
+                </div>
+            </div>
+
+            <div class="panel inspector-panel">
+                <div class="panel-title-bar right-title">
+                    <span>Existing File Viewer</span>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button class="panel-action-btn inspect-init" id="init-inspector-btn">Init Inspector</button>
+                        <div class="file-input-wrapper" style="margin: 0;">
+                            <div class="custom-file-btn secondary" style="padding: 4px 12px; font-size: 0.8rem;">Pull existing .eldrum</div>
+                            <input type="file" id="import-inspector" accept=".eldrum">
+                        </div>
+                    </div>
+                </div>
+                <div class="slots-grid" id="inspect-slots-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM ELEMENTS (QUERIED FIRST TO PREVENT NULL REFERENCE ERRORS) ---
+        const poolContainer = document.getElementById('pool-container');
+        const activeSlotsGrid = document.getElementById('active-slots-grid');
+        const inspectSlotsGrid = document.getElementById('inspect-slots-grid');
+        const wavLoader = document.getElementById('wav-loader');
+        const importInspector = document.getElementById('import-inspector');
+        const exportBtn = document.getElementById('export-btn');
+        const kitNameInput = document.getElementById('kit-name');
+        const clearDumpBtn = document.getElementById('clear-dump-btn');
+        const clearSlotsBtn = document.getElementById('clear-slots-btn');
+        const rollKitBtn = document.getElementById('roll-kit-btn');
+        const initInspectorBtn = document.getElementById('init-inspector-btn');
+        const volumeSlider = document.getElementById('volume-slider');
+        const volumeVal = document.getElementById('volume-val');
+        const themeSelect = document.getElementById('theme-select');
+        const undoBtn = document.getElementById('undo-btn');
+        const redoBtn = document.getElementById('redo-btn');
+        const normalizeCheck = document.getElementById('normalize-check');
+        const poolPlaceholderHtml = `<div id="pool-placeholder" style="color: var(--text-muted); text-align: center; margin-top: 40px; font-size: 0.9rem; pointer-events: none;">Drag & Drop Audio Files here from File Explorer</div>`;
+        const advisoryFolderLabels = document.querySelectorAll('.adv-folder');
+
+        // Theme Setup
+        let storedTheme = 'orange';
+        try {
+            storedTheme = localStorage.getItem('tonverk-creator-theme') || 'orange';
+        } catch(err) {
+            console.warn("localStorage block detected. Defaulting to Orange theme.");
+        }
+        themeSelect.value = storedTheme;
+        document.documentElement.setAttribute('data-theme', storedTheme);
+
+        themeSelect.addEventListener('change', (e) => {
+            const theme = e.target.value;
+            document.documentElement.setAttribute('data-theme', theme);
+            try {
+                localStorage.setItem('tonverk-creator-theme', theme);
+            } catch(err) {}
+            
+            for (let i = 0; i < 8; i++) {
+                const slot = kitModel.slots[i];
+                if (slot.filename) {
+                    const buffer = audioBufferCache.get(slot.filename);
+                    if (buffer) {
+                        const el = activeSlotsGrid.children[i];
+                        const canvas = el.querySelector('.micro-waveform');
+                        if (canvas) {
+                            drawWaveform(canvas, buffer, slot);
+                        }
+                    }
+                }
+            }
+        });
+
+        const subtrackNotes = [60, 62, 64, 65, 67, 69, 71, 72];
+        const defaultCategories = ["Kick", "Snare", "Percussion", "Percussion", "Percussion", "Hi-Hat", "Hi-Hat", "Percussion"];
+        
+        const slotColors = [
+            '#ff3b30', // C3 (Kick) - Red
+            '#00a8ff', // D3 (Snare) - Cyan
+            '#ffcc00', // E3 (Tom) - Yellow
+            '#af52de', // F3 (Clap) - Purple
+            '#ff2d55', // G3 (Cowbell) - Pink
+            '#2ecc71', // A3 (Closed HH) - Green
+            '#e67e22', // B3 (Open HH) - Orange
+            '#1abc9c'  // C4 (Cymbal) - Turquoise
+        ];
+
+        const dbName = "SubtraktorDB";
+        const storeName = "sessionStore";
+
+        // Tabbed Pool Banks Model
+        let currentPoolBank = 'A';
+        const poolBanks = {
+            A: new Set(),
+            B: new Set(),
+            C: new Set(),
+            D: new Set()
+        };
+
+        // Registries and dynamic caches
+        const globalFilePool = new Map();
+        const globalFileCategories = new Map();
+        const globalFileOriginalExts = new Map();
+        const audioBufferCache = new Map(); 
+        
+        let previewCtx = null;
+        let playingSources = new Map(); // uniqueKey -> { source, gainNode, isSlot, indexOrName, filename }
+        let playheadAnimations = new Map(); // uniqueKey -> animationFrameId
+        let previewVolume = 0.20;
+        let draggedPoolItemName = null;
+
+        let kitModel = {
+            kitName: "MyCustomKit",
+            slots: Array(8).fill(null).map((_, i) => ({ filename: null, velocity: 100, category: defaultCategories[i], strategy: 'Forward', trimStart: 0.0, trimEnd: 1.0 }))
+        };
+
+        const historyStack = { undoArr: [], redoArr: [], maxDepth: 10 };
+        let draggedSlotIndex = null;
+
+        function getDB() {
+            return new Promise((res, rej) => {
+                try {
+                    const req = indexedDB.open(dbName, 1);
+                    req.onupgradeneeded = e => e.target.result.createObjectStore(storeName);
+                    req.onsuccess = e => res(e.target.result);
+                    req.onerror = e => rej(e.target.error);
+                } catch(err) {
+                    rej(err);
+                }
+            });
+        }
+
+        async function saveSessionToDB() {
+            try {
+                const db = await getDB(), tx = db.transaction(storeName, "readwrite"), store = tx.objectStore(storeName);
+                const filesArray = [];
+                globalFilePool.forEach((file, name) => {
+                    filesArray.push({
+                        name,
+                        file, 
+                        category: globalFileCategories.get(name),
+                        origExt: globalFileOriginalExts.get(name)
+                    });
+                });
+
+                const state = {
+                    currentPoolBank,
+                    poolBanks: { A: Array.from(poolBanks.A), B: Array.from(poolBanks.B), C: Array.from(poolBanks.C), D: Array.from(poolBanks.D) },
+                    kitModel,
+                    theme: document.documentElement.getAttribute('data-theme') || 'orange',
+                    normalize: normalizeCheck.checked,
+                    files: filesArray
+                };
+
+                store.put(state, "latestSession");
+            } catch (err) {
+                console.warn("Auto-save failed:", err);
+            }
+        }
+
+        async function loadSessionFromDB() {
+            try {
+                const db = await getDB(), tx = db.transaction(storeName, "readonly"), store = tx.objectStore(storeName);
+                const request = store.get("latestSession");
+
+                request.onsuccess = async (e) => {
+                    const state = e.target.result;
+                    if (!state) {
+                        renderPoolItemsFromMap();
+                        return;
+                    }
+
+                    globalFilePool.clear();
+                    globalFileCategories.clear();
+                    globalFileOriginalExts.clear();
+                    audioBufferCache.clear();
+
+                    if (state.files) {
+                        state.files.forEach(item => {
+                            globalFilePool.set(item.name, item.file);
+                            globalFileCategories.set(item.name, item.category);
+                            globalFileOriginalExts.set(item.name, item.origExt);
+                        });
+                    }
+
+                    currentPoolBank = state.currentPoolBank || 'A';
+                    if (state.poolBanks) {
+                        poolBanks.A = new Set(state.poolBanks.A);
+                        poolBanks.B = new Set(state.poolBanks.B);
+                        poolBanks.C = new Set(state.poolBanks.C);
+                        poolBanks.D = new Set(state.poolBanks.D);
+                    }
+
+                    document.querySelectorAll('[data-pool-bank]').forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.poolBank === currentPoolBank);
+                    });
+
+                    if (state.kitModel) {
+                        kitModel = state.kitModel;
+                        kitNameInput.value = kitModel.kitName || "MyCustomKit";
+                    }
+
+                    normalizeCheck.checked = state.normalize || false;
+
+                    const theme = state.theme || 'orange';
+                    document.documentElement.setAttribute('data-theme', theme);
+                    themeSelect.value = theme;
+
+                    renderPoolItemsFromMap();
+                    syncUiFromModel();
+                };
+            } catch (err) {
+                console.error("IndexedDB restore failed:", err);
+                renderPoolItemsFromMap();
+            }
+        }
+
+        function renderPoolItemsFromMap() {
+            poolContainer.innerHTML = '';
+            const activeSet = poolBanks[currentPoolBank];
+            
+            if (!activeSet || activeSet.size === 0) {
+                poolContainer.innerHTML = poolPlaceholderHtml;
+                return;
+            }
+
+            let fileIndex = 1;
+            activeSet.forEach(sanitized => {
+                const file = globalFilePool.get(sanitized);
+                if (!file) return;
+
+                const origExt = globalFileOriginalExts.get(sanitized) || "WAV";
+                const guessedCat = globalFileCategories.get(sanitized) || "Other";
+
+                const item = document.createElement('div');
+                item.className = 'pool-item';
+                item.dataset.filename = sanitized;
+                item.setAttribute('draggable', 'true');
+
+                const metaGroup = document.createElement('div');
+                metaGroup.className = 'pool-item-meta';
+
+                const serialSpan = document.createElement('span');
+                serialSpan.className = 'serial-no';
+                serialSpan.textContent = `[${String(fileIndex++).padStart(2, '0')}]`;
+
+                const poolPlayBtn = document.createElement('button');
+                poolPlayBtn.className = 'play-pool-btn';
+                poolPlayBtn.style.cssText = "background: none; border: none; color: var(--accent-color); cursor: pointer; font-size: 0.9rem; padding: 0 4px; line-height: 1;";
+                poolPlayBtn.innerHTML = '▶';
+                poolPlayBtn.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    togglePoolItemPreview(sanitized, poolPlayBtn);
+                });
+
+                const poolFormatBadge = document.createElement('span');
+                poolFormatBadge.style.cssText = `font-family: monospace; font-size: 0.7rem; padding: 2px 5px; border-radius: 3px; background: ${getFormatBadgeColor(origExt)}; color: ${getFormatTextColor(origExt)}; font-weight: bold; margin-right: 6px; flex-shrink: 0;`;
+                poolFormatBadge.textContent = origExt;
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'file-name-text';
+                nameSpan.textContent = sanitized;
+
+                const poolCategorySelect = document.createElement('select');
+                poolCategorySelect.style.cssText = "background: var(--bg-primary); border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; border-radius: 3px; padding: 2px; outline: none; cursor: pointer; max-width: 75px;";
+                const cats = ["Kick", "Snare", "Hi-Hat", "Percussion", "Other"];
+                cats.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c === "Percussion" ? "Perc" : c;
+                    if (c === guessedCat) opt.selected = true;
+                    poolCategorySelect.appendChild(opt);
+                });
+                poolCategorySelect.addEventListener('change', (e) => {
+                    globalFileCategories.set(sanitized, e.target.value);
+                    saveSessionToDB();
+                });
+
+                metaGroup.appendChild(serialSpan);
+                metaGroup.appendChild(poolPlayBtn);
+                metaGroup.appendChild(poolFormatBadge);
+                metaGroup.appendChild(nameSpan);
+                metaGroup.appendChild(poolCategorySelect);
+                item.appendChild(metaGroup);
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'delete-pool-item-btn';
+                delBtn.innerHTML = '&times;';
+                delBtn.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    stopPreview(`pool-${sanitized}`);
+                    
+                    activeSet.delete(sanitized);
+                    
+                    let referencedElsewhere = false;
+                    Object.keys(poolBanks).forEach(bankKey => {
+                        if (poolBanks[bankKey].has(sanitized)) {
+                            referencedElsewhere = true;
+                        }
+                    });
+                    if (!referencedElsewhere) {
+                        globalFilePool.delete(sanitized);
+                        globalFileCategories.delete(sanitized);
+                        globalFileOriginalExts.delete(sanitized);
+                        audioBufferCache.delete(sanitized);
+                    }
+
+                    item.remove();
+                    if (activeSet.size === 0) {
+                        poolContainer.innerHTML = poolPlaceholderHtml;
+                    }
+                    updateSidebarHighlights();
+                    saveSessionToDB();
+                });
+                item.appendChild(delBtn);
+
+                item.addEventListener('dragstart', (ev) => {
+                    ev.dataTransfer.setData('text/source', 'pool');
+                    ev.dataTransfer.setData('text/plain', sanitized);
+                    draggedPoolItemName = sanitized;
+                });
+
+                item.addEventListener('dragend', () => {
+                    draggedPoolItemName = null;
+                });
+
+                item.addEventListener('dragover', (ev) => {
+                    ev.preventDefault();
+                    if (draggedPoolItemName && draggedPoolItemName !== sanitized) {
+                        item.style.borderTop = '2px solid var(--accent-color)';
+                    }
+                });
+
+                item.addEventListener('dragleave', () => {
+                    item.style.borderTop = '';
+                });
+
+                item.addEventListener('drop', (ev) => {
+                    ev.preventDefault();
+                    item.style.borderTop = '';
+                    const source = ev.dataTransfer.getData('text/source');
+                    if (source === 'pool' && draggedPoolItemName && draggedPoolItemName !== sanitized) {
+                        const draggedEl = poolContainer.querySelector(`[data-filename="${draggedPoolItemName}"]`);
+                        if (draggedEl) {
+                            poolContainer.insertBefore(draggedEl, item);
+                            reorderPoolMapsFromDOM();
+                            saveSessionToDB();
+                        }
+                    }
+                });
+
+                poolContainer.appendChild(item);
+            });
+            updateSidebarHighlights();
+        }
+
+        function reorderPoolMapsFromDOM() {
+            const newSet = new Set();
+            poolContainer.querySelectorAll('.pool-item').forEach(el => {
+                const name = el.dataset.filename;
+                if (poolBanks[currentPoolBank].has(name)) {
+                    newSet.add(name);
+                }
+            });
+            poolBanks[currentPoolBank] = newSet;
+        }
+
+        document.querySelectorAll('[data-pool-bank]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const selectedBank = e.target.dataset.poolBank;
+                if (selectedBank === currentPoolBank) return;
+
+                currentPoolBank = selectedBank;
+                
+                document.querySelectorAll('[data-pool-bank]').forEach(b => {
+                    b.classList.toggle('active', b.dataset.poolBank === currentPoolBank);
+                });
+
+                renderPoolItemsFromMap();
+                saveSessionToDB();
+            });
+        });
+
+        // Global Drag Actions
+        window.addEventListener('dragover', (e) => e.preventDefault());
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (e.target === document.body || document.body.contains(e.target)) {
+                if (!e.target.closest('#pool-container') && !e.target.closest('.slot') && !e.target.closest('#inspect-slots-grid')) {
+                    processAudioFiles(Array.from(e.dataTransfer.files));
+                }
+            }
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+                if (e.key.toLowerCase() === 'z') { e.preventDefault(); executeUndo(); }
+                if (e.key.toLowerCase() === 'y') { e.preventDefault(); executeRedo(); }
+            }
+        });
+
+        undoBtn.addEventListener('click', () => executeUndo());
+        redoBtn.addEventListener('click', () => executeRedo());
+
+        volumeSlider.addEventListener('input', (e) => {
+            previewVolume = parseFloat(e.target.value);
+            volumeVal.textContent = `${Math.round(previewVolume * 100)}%`;
+            playingSources.forEach((active) => {
+                let vol = previewVolume;
+                if (active.isSlot) {
+                    const vel = kitModel.slots[active.indexOrName].velocity || 100;
+                    vol = previewVolume * (vel / 127);
+                }
+                active.gainNode.gain.value = vol;
+            });
+        });
+
+        function pushHistoryState() {
+            historyStack.undoArr.push(JSON.stringify(kitModel));
+            if (historyStack.undoArr.length > historyStack.maxDepth) historyStack.undoArr.shift();
+            historyStack.redoArr = [];
+            updateUndoRedoButtons();
+        }
+
+        function executeUndo() {
+            if (historyStack.undoArr.length === 0) return;
+            historyStack.redoArr.push(JSON.stringify(kitModel));
+            kitModel = JSON.parse(historyStack.undoArr.pop());
+            syncUiFromModel();
+            saveSessionToDB();
+        }
+
+        function executeRedo() {
+            if (historyStack.redoArr.length === 0) return;
+            historyStack.undoArr.push(JSON.stringify(kitModel));
+            kitModel = JSON.parse(historyStack.redoArr.pop());
+            syncUiFromModel();
+            saveSessionToDB();
+        }
+
+        function updateUndoRedoButtons() {
+            undoBtn.disabled = historyStack.undoArr.length === 0;
+            redoBtn.disabled = historyStack.redoArr.length === 0;
+        }
+
+        function sanitizeFilename(name) {
+            const parts = name.split('.');
+            let ext = parts.pop().toLowerCase();
+            const base = parts.join('.');
+            const cleanBase = base.replace(/[^a-zA-Z0-9_\-]/g, '_').replace(/__+/g, '_');
+            return `${cleanBase}.${ext}`;
+        }
+
+        function guessCategory(filename) {
+            const lower = filename.toLowerCase();
+            if (lower.includes('kick') || lower.includes(' bd') || lower.includes('_bd') || lower.startsWith('bd')) return 'Kick';
+            if (lower.includes('snare') || lower.includes(' sd') || lower.includes('_sd') || lower.startsWith('sd')) return 'Snare';
+            if (lower.includes('hat') || lower.includes('hh') || lower.includes('clh') || lower.includes('oph') || lower.includes('shaker') || lower.includes('ride') || lower.includes('cymbal')) return 'Hi-Hat';
+            if (lower.includes('perc') || lower.includes('rim') || lower.includes('clap') || lower.includes('cow') || lower.includes('cym') || lower.includes('crash') || lower.includes('tom') || lower.includes('hit')) return 'Percussion';
+            return 'Other';
+        }
+
+        function getFormatBadgeColor(ext) {
+            switch (ext) {
+                case 'WAV': return 'rgba(86, 182, 194, 0.15)';
+                case 'MP3': return 'rgba(224, 108, 117, 0.15)';
+                case 'FLAC': return 'rgba(152, 195, 121, 0.15)';
+                case 'AIFF':
+                case 'AIF': return 'rgba(97, 175, 239, 0.15)';
+                case 'M4A':
+                case 'AAC': return 'rgba(198, 120, 221, 0.15)';
+                case 'OGG':
+                case 'OPUS': return 'rgba(209, 154, 102, 0.15)';
+                default: return 'rgba(171, 178, 191, 0.15)';
+            }
+        }
+        function getFormatTextColor(ext) {
+            switch (ext) {
+                case 'WAV': return '#56b6c2';
+                case 'MP3': return '#e06c75';
+                case 'FLAC': return '#98c379';
+                case 'AIFF':
+                case 'AIF': return '#61afef';
+                case 'M4A':
+                case 'AAC': return '#c678dd';
+                case 'OGG':
+                case 'OPUS': return '#d19a66';
+                default: return '#abb2bf';
+            }
+        }
+
+        function getThemeAccentColor() {
+            return getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim();
+        }
+
+        function skipId3Tag(arrayBuffer) {
+            if (arrayBuffer.byteLength < 10) return arrayBuffer;
+            const view = new DataView(arrayBuffer);
+            
+            const id3 = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2));
+            if (id3 === "ID3") {
+                const b0 = view.getUint8(6);
+                const b1 = view.getUint8(7);
+                const b2 = view.getUint8(8);
+                const b3 = view.getUint8(9);
+                
+                const id3Size = (b0 << 21) | (b1 << 14) | (b2 << 7) | b3;
+                const totalId3Length = 10 + id3Size;
+                
+                if (arrayBuffer.byteLength > totalId3Length) {
+                    console.log(`Skipping prepended ID3 tag of size ${totalId3Length} bytes.`);
+                    return arrayBuffer.slice(totalId3Length);
+                }
+            }
+            return arrayBuffer;
+        }
+
+        function stripWavMetadata(arrayBuffer) {
+            if (arrayBuffer.byteLength < 12) return arrayBuffer;
+            const view = new DataView(arrayBuffer);
+
+            let riffHeader = "";
+            for (let i = 0; i < 4; i++) {
+                riffHeader += String.fromCharCode(view.getUint8(i));
+            }
+            if (riffHeader !== "RIFF") return arrayBuffer;
+
+            let waveType = "";
+            for (let i = 8; i < 12; i++) {
+                waveType += String.fromCharCode(view.getUint8(i));
+            }
+            if (waveType !== "WAVE") return arrayBuffer;
+
+            try {
+                let pos = 12;
+                const keptChunks = [];
+                let totalKeptSize = 0;
+
+                while (pos + 8 <= arrayBuffer.byteLength) {
+                    let chunkId = "";
+                    for (let i = 0; i < 4; i++) {
+                        chunkId += String.fromCharCode(view.getUint8(pos + i));
+                    }
+                    const chunkSize = view.getUint32(pos + 4, true);
+                    const paddedSize = (chunkSize % 2 !== 0) ? chunkSize + 1 : chunkSize;
+
+                    if (pos + 8 + paddedSize > arrayBuffer.byteLength) {
+                        break; 
+                    }
+
+                    if (chunkId === "fmt " || chunkId === "data" || chunkId === "fact") {
+                        const chunkSlice = arrayBuffer.slice(pos, pos + 8 + paddedSize);
+                        keptChunks.push(chunkSlice);
+                        totalKeptSize += chunkSlice.byteLength;
+                    }
+
+                    pos += 8 + paddedSize;
+                }
+
+                if (keptChunks.length > 0) {
+                    const cleanBuffer = new ArrayBuffer(12 + totalKeptSize);
+                    const cleanView = new DataView(cleanBuffer);
+
+                    cleanView.setUint8(0, 82); 
+                    cleanView.setUint8(1, 73); 
+                    cleanView.setUint8(2, 70); 
+                    cleanView.setUint8(3, 70); 
+                    cleanView.setUint32(4, 4 + totalKeptSize, true); 
+                    cleanView.setUint8(8, 87);  
+                    cleanView.setUint8(9, 65);  
+                    cleanView.setUint8(10, 86); 
+                    cleanView.setUint8(11, 69); 
+
+                    const cleanArr = new Uint8Array(cleanBuffer);
+                    let writePos = 12;
+                    for (const chunk of keptChunks) {
+                        cleanArr.set(new Uint8Array(chunk), writePos);
+                        writePos += chunk.byteLength;
+                    }
+                    return cleanBuffer;
+                }
+            } catch (err) {
+                console.warn("RIFF metadata scrubbing failed, using original stream buffer:", err);
+            }
+            return arrayBuffer;
+        }
+
+        async function validateAndGetAudioBuffer(file) {
+            if (!previewCtx) {
+                previewCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            const rawBuffer = await file.arrayBuffer();
+            
+            try {
+                return await previewCtx.decodeAudioData(rawBuffer.slice(0));
+            } catch (err) {
+                console.warn(`Standard decoding failed for ${file.name}. Retrying with metadata scrub...`);
+            }
+
+            try {
+                const cleanedBuffer = stripWavMetadata(skipId3Tag(rawBuffer.slice(0)));
+                return await previewCtx.decodeAudioData(cleanedBuffer);
+            } catch (err) {
+                throw new Error("Self-healing decoder failed to decode file structure.");
+            }
+        }
+
+        async function processAudioFiles(files) {
+            const supportedExtensions = ['.wav', '.mp3', '.flac', '.m4a', '.ogg', '.aac', '.aif', '.aiff', '.opus'];
+            const validFiles = files.filter(file => {
+                const ext = '.' + file.name.split('.').pop().toLowerCase();
+                return supportedExtensions.includes(ext) || file.type.startsWith('audio/');
+            });
+
+            if (validFiles.length === 0) return [];
+
+            const placeholder = document.getElementById('pool-placeholder');
+            if (placeholder) placeholder.remove();
+
+            if ((kitModel.kitName === "MyCustomKit" || !kitModel.kitName) && validFiles.length > 0) {
+                const rawName = validFiles[0].name.split('.')[0];
+                const sanitizedKitName = rawName.replace(/[^a-zA-Z0-9_\-]/g, '_').substring(0, 18) || "MyCustomKit";
+                kitNameInput.value = sanitizedKitName;
+                kitModel.kitName = sanitizedKitName;
+                advisoryFolderLabels.forEach(el => el.textContent = sanitizedKitName);
+            }
+
+            const addedNames = [];
+
+            for (const file of validFiles) {
+                const sanitized = sanitizeFilename(file.name);
+                const origExt = file.name.split('.').pop().toUpperCase();
+                
+                if (poolBanks[currentPoolBank].has(sanitized)) {
+                    addedNames.push(sanitized);
+                    continue;
+                }
+
+                try {
+                    const decodedBuffer = await validateAndGetAudioBuffer(file);
+                    
+                    audioBufferCache.set(sanitized, decodedBuffer);
+                    globalFilePool.set(sanitized, file);
+                    globalFileCategories.set(sanitized, guessCategory(file.name));
+                    globalFileOriginalExts.set(sanitized, origExt);
+                    
+                    poolBanks[currentPoolBank].add(sanitized);
+                    addedNames.push(sanitized);
+                } catch (err) {
+                    console.error(`Decoding failed completely for "${file.name}":`, err);
+                    alert(`⚠️ File Rejected: "${file.name}" is corrupted, unreadable, or uses an unsupported codec. This asset has been blocked.`);
+                }
+            }
+
+            renderPoolItemsFromMap();
+            saveSessionToDB();
+            return addedNames;
+        }
+
+        async function playPreview(filename, file, isSlot, indexOrName, btnElement) {
+            if (!previewCtx) {
+                previewCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (previewCtx.state === 'suspended') {
+                await previewCtx.resume();
+            }
+
+            const uniqueKey = isSlot ? `slot-${indexOrName}` : `pool-${indexOrName}`;
+            
+            if (playingSources.has(uniqueKey)) {
+                stopPreview(uniqueKey);
+                btnElement.innerHTML = '▶';
+                return;
+            }
+
+            playingSources.forEach((active, key) => {
+                stopPreview(key);
+            });
+            document.querySelectorAll('.play-pool-btn, .preview-slot-btn').forEach(btn => btn.innerHTML = '▶');
+
+            btnElement.innerHTML = '■';
+
+            try {
+                let audioBuffer = audioBufferCache.get(filename);
+                if (!audioBuffer) {
+                    audioBuffer = await validateAndGetAudioBuffer(file);
+                    audioBufferCache.set(filename, audioBuffer);
+                }
+
+                const source = previewCtx.createBufferSource();
+                source.buffer = audioBuffer;
+
+                const gainNode = previewCtx.createGain();
+                let vol = previewVolume;
+                if (isSlot) {
+                    const vel = kitModel.slots[indexOrName].velocity || 100;
+                    vol = previewVolume * (vel / 127);
+                }
+                gainNode.gain.value = vol;
+
+                const slot = kitModel.slots[indexOrName];
+                const startOffset = isSlot ? (audioBuffer.duration * (slot.trimStart || 0.0)) : 0.0;
+                const playDuration = isSlot ? (audioBuffer.duration * ((slot.trimEnd || 1.0) - (slot.trimStart || 0.0))) : audioBuffer.duration;
+
+                source.connect(gainNode);
+                gainNode.connect(previewCtx.destination);
+
+                const playCtxStartTime = previewCtx.currentTime;
+                source.start(0, startOffset, playDuration);
+                playingSources.set(uniqueKey, { source, gainNode, isSlot, indexOrName, filename });
+
+                if (isSlot) {
+                    const canvas = activeSlotsGrid.children[indexOrName].querySelector('.micro-waveform');
+                    
+                    function animatePlayhead() {
+                        const elapsed = previewCtx.currentTime - playCtxStartTime;
+                        const ratio = elapsed / playDuration;
+
+                        if (ratio >= 1.0) {
+                            drawWaveform(canvas, audioBuffer, slot); 
+                            playheadAnimations.delete(uniqueKey);
+                            return;
+                        }
+
+                        const currentPct = (slot.trimStart || 0.0) + (ratio * ((slot.trimEnd || 1.0) - (slot.trimStart || 0.0)));
+                        drawWaveform(canvas, audioBuffer, slot, currentPct);
+
+                        const animId = requestAnimationFrame(animatePlayhead);
+                        playheadAnimations.set(uniqueKey, animId);
+                    }
+
+                    if (playheadAnimations.has(uniqueKey)) {
+                        cancelAnimationFrame(playheadAnimations.get(uniqueKey));
+                    }
+                    animatePlayhead();
+                }
+
+                source.onended = () => {
+                    const playing = playingSources.get(uniqueKey);
+                    if (playing && playing.source === source) {
+                        playingSources.delete(uniqueKey);
+                        btnElement.innerHTML = '▶';
+                    }
+                    if (isSlot && playheadAnimations.has(uniqueKey)) {
+                        cancelAnimationFrame(playheadAnimations.get(uniqueKey));
+                        playheadAnimations.delete(uniqueKey);
+                        const canvas = activeSlotsGrid.children[indexOrName].querySelector('.micro-waveform');
+                        drawWaveform(canvas, audioBuffer, slot);
+                    }
+                };
+            } catch (err) {
+                console.error("Preview failed:", err); btnElement.innerHTML = '▶';
+                alert("Web Audio engine could not decode this sample.");
+            }
+        }
+
+        function stopPreview(uniqueKey) {
+            const active = playingSources.get(uniqueKey);
+            if (active) {
+                try { active.source.stop(); } catch(e) {}
+                playingSources.delete(uniqueKey);
+                
+                if (playheadAnimations.has(uniqueKey)) {
+                    cancelAnimationFrame(playheadAnimations.get(uniqueKey));
+                    playheadAnimations.delete(uniqueKey);
+                    const idx = active.indexOrName;
+                    const canvas = activeSlotsGrid.children[idx].querySelector('.micro-waveform');
+                    const buf = audioBufferCache.get(active.filename);
+                    if (canvas && buf) {
+                        drawWaveform(canvas, buf, kitModel.slots[idx]);
+                    }
+                }
+            }
+        }
+
+        function togglePoolItemPreview(name, btn) {
+            const file = globalFilePool.get(name); if (!file) return;
+            playPreview(name, file, false, name, btn);
+        }
+
+        function updateSidebarHighlights() {
+            const assignedNames = kitModel.slots.map(s => s.filename).filter(Boolean);
+            poolContainer.querySelectorAll('.pool-item').forEach(item => {
+                item.classList.toggle('assigned', assignedNames.includes(item.dataset.filename));
+            });
+        }
+
+        function drawWaveform(canvas, audioBuffer, slot = {}, playheadPct = null) {
+            const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const leftData = audioBuffer.getChannelData(0);
+            const step = Math.ceil(leftData.length / canvas.width);
+            const amp = canvas.height / 2;
+            
+            const startPx = Math.round((slot.trimStart !== undefined ? slot.trimStart : 0.0) * canvas.width);
+            const endPx = Math.round((slot.trimEnd !== undefined ? slot.trimEnd : 1.0) * canvas.width);
+            const accentColor = getThemeAccentColor() || 'rgba(255, 92, 0, 0.7)';
+            
+            for (let i = 0; i < canvas.width; i++) {
+                let min = 1.0, max = -1.0;
+                const startIdx = i * step, endIdx = Math.min(startIdx + step, leftData.length);
+                for (let j = startIdx; j < endIdx; j++) {
+                    const datum = leftData[j];
+                    if (datum < min) min = datum; if (datum > max) max = datum;
+                }
+                const y1 = (1 + min) * amp, y2 = (1 + max) * amp;
+                
+                if (i >= startPx && i <= endPx) {
+                    ctx.fillStyle = accentColor;
+                } else {
+                    ctx.fillStyle = 'rgba(128,128,128,0.2)';
+                }
+                ctx.fillRect(i, y1, 1, Math.max(1, y2 - y1));
+            }
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(startPx, 0, 1.5, canvas.height);
+            ctx.fillRect(endPx - 1, 0, 1.5, canvas.height);
+
+            if (playheadPct !== null) {
+                const playheadPx = Math.round(playheadPct * canvas.width);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(playheadPx, 0, 1.5, canvas.height);
+            }
+        }
+
+        // Setup drop zones for native elements (MacOS Finder & Windows Explorer native drag handshakes)
+        poolContainer.addEventListener('dragenter', (e) => e.preventDefault());
+        poolContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            poolContainer.style.borderColor = 'var(--accent-color)';
+        });
+        poolContainer.addEventListener('dragleave', () => {
+            poolContainer.style.borderColor = 'var(--border-color)';
+        });
+        poolContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            poolContainer.style.borderColor = 'var(--border-color)';
+            processAudioFiles(Array.from(e.dataTransfer.files));
+        });
+
+        // Initialize file select change listeners
+        wavLoader.addEventListener('change', (e) => {
+            processAudioFiles(Array.from(e.target.files)).then(() => {
+                wavLoader.value = ''; // Reset state so the same file can be loaded repeatedly
+            });
+        });
+
+        // Loop structure creating DOM nodes sequentially
+        for (let i = 0; i < 8; i++) {
+            const displayNum = String(i + 1).padStart(2, '0');
+            const defaultCat = defaultCategories[i];
+            const leftSlot = document.createElement('div');
+            leftSlot.className = 'slot'; leftSlot.dataset.slotIndex = i;
+            const color = slotColors[i]; leftSlot.style.setProperty('--slot-color', color);
+            leftSlot.innerHTML = `
+                <div class="slot-identity">
+                    <span class="slot-no">${displayNum}</span>
+                    <!-- Interactive Category Selector next to slots -->
+                    <select class="slot-category-select" style="background:var(--bg-primary);border:1px solid var(--border-color);color:var(--text-muted);font-size:.75rem;border-radius:4px;padding:2px 4px;outline:none;cursor:pointer;">
+                        <option value="Kick" ${defaultCat === "Kick" ? "selected" : ""}>Kick</option>
+                        <option value="Snare" ${defaultCat === "Snare" ? "selected" : ""}>Snare</option>
+                        <option value="Hi-Hat" ${defaultCat === "Hi-Hat" ? "selected" : ""}>Hi-Hat</option>
+                        <option value="Percussion" ${defaultCat === "Percussion" ? "selected" : ""}>Perc</option>
+                        <option value="Other" ${defaultCat === "Other" ? "selected" : ""}>Other</option>
+                    </select>
+                    <!-- Elektron strategy parameter (Forward/Reverse/Ping-Pong) -->
+                    <select class="slot-strategy-select" style="background:var(--bg-primary);border:1px solid var(--border-color);color:var(--text-muted);font-size:.75rem;border-radius:4px;padding:2px 4px;outline:none;cursor:pointer;">
+                        <option value="Forward">FWD</option>
+                        <option value="Backward">REV</option>
+                        <option value="PingPong">PPG</option>
+                    </select>
+                    <!-- Audio playback preview button -->
+                    <button class="preview-slot-btn" style="display:none;background:none;border:none;color:var(--accent-color);cursor:pointer;font-size:1rem;padding:0 4px;line-height:1;">▶</button>
+                    <div class="slot-content slot-empty" style="flex:1;min-width:0;">Drop WAV here</div>
+                    <span class="conversion-indicator" style="display:none;margin-left:8px;flex-shrink:0;line-height:1;"></span>
+                    <!-- DAW-style Interactive Waveform Editor Canvas -->
+                    <canvas class="micro-waveform" width="120" height="24" style="display:none;background:rgba(0,0,0,0.2);border-radius:3px;border:1px solid var(--border-color);opacity:0.75;margin-left:12px;margin-right:12px;flex-shrink:0;"></canvas>
+                    <span class="slot-duration" style="display:none;font-family:monospace;font-size:.75rem;color:var(--text-muted);margin-right:12px;flex-shrink:0;cursor:pointer;" title="Double-click to reset trim"></span>
+                </div>
+                <div class="slot-controls">
+                    <div class="velocity-container"><label>Vel:</label><input type="number" class="velocity-input" min="0" max="127" value="100"></div>
+                    <button class="clear-slot-btn">&times;</button>
+                </div>
+            `;
+            leftSlot.ondragstart = (e) => {
+                if (!kitModel.slots[i].filename) { e.preventDefault(); return; }
+                draggedSlotIndex = i; e.dataTransfer.setData('text/source', 'slot');
+            };
+            leftSlot.ondragenter = (e) => e.preventDefault();
+            leftSlot.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; leftSlot.classList.add('drag-over'); };
+            leftSlot.ondragleave = () => leftSlot.classList.remove('drag-over');
+            leftSlot.ondrop = (e) => {
+                e.preventDefault(); leftSlot.classList.remove('drag-over');
+                const src = e.dataTransfer.getData('text/source'); pushHistoryState();
+                if (src === 'pool') {
+                    const fn = e.dataTransfer.getData('text/plain'); if (fn) assignFileToSlot(i, fn, 100);
+                } else if (src === 'slot' && draggedSlotIndex !== null && draggedSlotIndex !== i) {
+                    const tmp = { ...kitModel.slots[i] };
+                    const draggedCopy = { ...kitModel.slots[draggedSlotIndex] };
+                    assignFileToSlot(i, draggedCopy.filename, draggedCopy.velocity, draggedCopy.strategy, draggedCopy.trimStart, draggedCopy.trimEnd);
+                    if (tmp.filename) {
+                        assignFileToSlot(draggedSlotIndex, tmp.filename, tmp.velocity, tmp.strategy, tmp.trimStart, tmp.trimEnd);
+                    } else {
+                        clearSlot(draggedSlotIndex);
+                    }
+                    draggedSlotIndex = null;
+                } else if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    processAudioFiles(Array.from(e.dataTransfer.files)).then(names => { if (names.length > 0) assignFileToSlot(i, names[0], 100); });
+                }
+                updateSidebarHighlights();
+            };
+            leftSlot.querySelector('.slot-category-select').addEventListener('change', (e) => { pushHistoryState(); kitModel.slots[i].category = e.target.value; saveSessionToDB(); });
+            leftSlot.querySelector('.slot-strategy-select').addEventListener('change', (e) => { pushHistoryState(); kitModel.slots[i].strategy = e.target.value; saveSessionToDB(); });
+            leftSlot.querySelector('.velocity-input').addEventListener('focus', () => pushHistoryState());
+            leftSlot.querySelector('.velocity-input').addEventListener('input', (e) => {
+                let v = parseInt(e.target.value, 10); if (isNaN(v)) v = 100; if (v < 0) v = 0; if (v > 127) v = 127;
+                kitModel.slots[i].velocity = v; saveSessionToDB();
+                if (playingSources.has(`slot-${i}`)) playingSources.get(`slot-${i}`).gainNode.gain.value = previewVolume * (v / 127);
+            });
+            leftSlot.querySelector('.clear-slot-btn').addEventListener('click', (e) => { e.stopPropagation(); pushHistoryState(); clearSlot(i); updateSidebarHighlights(); saveSessionToDB(); });
+            leftSlot.querySelector('.preview-slot-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleSlotPreview(i); });
+
+            // Interactive Pointer-Locked Trimmer events on Canvas
+            const canvas = leftSlot.querySelector('.micro-waveform');
+            canvas.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const getPct = (clientX) => Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+
+                const clickPct = getPct(e.clientX);
+                const slot = kitModel.slots[i];
+                const start = slot.trimStart !== undefined ? slot.trimStart : 0.0;
+                const end = slot.trimEnd !== undefined ? slot.trimEnd : 1.0;
+
+                const activeHandle = Math.abs(clickPct - start) < Math.abs(clickPct - end) ? 'start' : 'end';
+                pushHistoryState();
+
+                canvas.setPointerCapture(e.pointerId);
+
+                const moveHandler = (ev) => {
+                    const dragPct = getPct(ev.clientX);
+                    if (activeHandle === 'start') {
+                        slot.trimStart = Math.min(dragPct, (slot.trimEnd !== undefined ? slot.trimEnd : 1.0) - 0.05); 
+                    } else {
+                        slot.trimEnd = Math.max(dragPct, (slot.trimStart !== undefined ? slot.trimStart : 0.0) + 0.05);
+                    }
+
+                    drawWaveform(canvas, audioBufferCache.get(slot.filename), slot);
+
+                    const durTag = leftSlot.querySelector('.slot-duration');
+                    if (durTag) {
+                        const totalDur = audioBufferCache.get(slot.filename).duration;
+                        const slicedDur = totalDur * ((slot.trimEnd !== undefined ? slot.trimEnd : 1.0) - (slot.trimStart !== undefined ? slot.trimStart : 0.0));
+                        durTag.textContent = slicedDur.toFixed(2) + 's';
+                    }
+                };
+
+                const upHandler = () => {
+                    canvas.removeEventListener('pointermove', moveHandler);
+                    canvas.removeEventListener('pointerup', upHandler);
+                    canvas.releasePointerCapture(e.pointerId);
+                    saveSessionToDB();
+                };
+
+                canvas.addEventListener('pointermove', moveHandler);
+                canvas.addEventListener('pointerup', upHandler);
+            });
+
+            // Double Click to Reset Trimmer Start/End Points
+            const durationTag = leftSlot.querySelector('.slot-duration');
+            durationTag.addEventListener('dblclick', () => {
+                const slot = kitModel.slots[i];
+                if (!slot.filename) return;
+
+                pushHistoryState();
+                slot.trimStart = 0.0;
+                slot.trimEnd = 1.0;
+
+                drawWaveform(canvas, audioBufferCache.get(slot.filename), slot);
+                durationTag.textContent = audioBufferCache.get(slot.filename).duration.toFixed(2) + 's';
+                saveSessionToDB();
+            });
+
+            activeSlotsGrid.appendChild(leftSlot);
+        }
+
+        function toggleSlotPreview(i) {
+            const slot = kitModel.slots[i]; if (!slot.filename) return;
+            const f = globalFilePool.get(slot.filename); if (!f) return;
+            const el = activeSlotsGrid.children[i], btn = el.querySelector('.preview-slot-btn');
+            playPreview(slot.filename, f, true, i, btn);
+        }
+
+        function renderBlankInspector() {
+            inspectSlotsGrid.innerHTML = '';
+            for (let i = 0; i < 8; i++) {
+                const displayNum = String(i + 1).padStart(2, '0');
+                const rightSlot = document.createElement('div');
+                rightSlot.className = 'slot static-inspect-mode';
+                rightSlot.innerHTML = `
+                    <div class="slot-identity">
+                        <span class="slot-no">${displayNum}</span>
+                        <div class="slot-content slot-empty">No File Loaded</div>
+                    </div>
+                    <div class="slot-controls"><span class="inspect-val-label"></span></div>
+                `;
+                inspectSlotsGrid.appendChild(rightSlot);
+            }
+        }
+
+        async function assignFileToSlot(index, filename, velocity = 100, strategy = null, trimStart = null, trimEnd = null) {
+            const targetSlot = kitModel.slots[index];
+            const finalStrategy = strategy !== null ? strategy : (targetSlot.strategy || 'Forward');
+            const finalTrimStart = trimStart !== null ? trimStart : (targetSlot.trimStart !== undefined ? targetSlot.trimStart : 0.0);
+            const finalTrimEnd = trimEnd !== null ? trimEnd : (targetSlot.trimEnd !== undefined ? targetSlot.trimEnd : 1.0);
+
+            targetSlot.filename = filename;
+            targetSlot.velocity = velocity;
+            targetSlot.strategy = finalStrategy;
+            targetSlot.trimStart = finalTrimStart;
+            targetSlot.trimEnd = finalTrimEnd;
+
+            renderAssignUi(index, filename, velocity);
+
+            const el = activeSlotsGrid.children[index];
+            el.querySelector('.slot-strategy-select').value = finalStrategy;
+
+            const f = globalFilePool.get(filename);
+            if (f) {
+                try {
+                    if (!previewCtx) previewCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    let audioBuffer = audioBufferCache.get(filename);
+                    if (!audioBuffer) { audioBuffer = await validateAndGetAudioBuffer(f); audioBufferCache.set(filename, audioBuffer); }
+                    
+                    const canvas = el.querySelector('.micro-waveform');
+                    if (canvas) {
+                        canvas.style.display = 'block';
+                        drawWaveform(canvas, audioBuffer, targetSlot);
+                    }
+
+                    const durationTag = el.querySelector('.slot-duration');
+                    if (durationTag) {
+                        durationTag.style.display = 'inline-block';
+                        const totalDur = audioBuffer.duration;
+                        const slicedDur = totalDur * (finalTrimEnd - finalTrimStart);
+                        durationTag.textContent = slicedDur.toFixed(2) + 's';
+                    }
+                } catch (err) { console.error("Visual helpers failed:", err); }
+            }
+            saveSessionToDB();
+        }
+
+        function renderAssignUi(index, filename, velocity) {
+            const el = activeSlotsGrid.children[index]; el.classList.add('occupied'); el.setAttribute('draggable', 'true');
+            const content = el.querySelector('.slot-content'); content.textContent = filename; content.classList.remove('slot-empty');
+            el.querySelector('.velocity-input').value = velocity; el.querySelector('.preview-slot-btn').style.display = 'inline-block';
+            const origExt = globalFileOriginalExts.get(filename) || "WAV";
+            const indicator = el.querySelector('.conversion-indicator');
+            if (indicator) {
+                indicator.style.display = 'inline-block';
+                indicator.innerHTML = `<span style="color:${getFormatTextColor(origExt)};border:1px solid ${getFormatTextColor(origExt)};background:${getFormatBadgeColor(origExt)};padding:2px 4px;border-radius:3px;font-size:0.7rem;font-weight:bold;font-family:monospace;">${origExt}</span> <span style="color:var(--accent-color);font-size:0.8rem;line-height:1;">➔</span> <span style="color:#000;background:var(--accent-color);padding:2px 4px;border-radius:3px;font-size:0.7rem;font-weight:bold;font-family:monospace;">WAV</span>`;
+            }
+        }
+
+        function clearSlot(index) {
+            const strat = kitModel.slots[index].strategy || 'Forward';
+            kitModel.slots[index].filename = null;
+            kitModel.slots[index].velocity = 100;
+            kitModel.slots[index].strategy = strat;
+            kitModel.slots[index].trimStart = 0.0;
+            kitModel.slots[index].trimEnd = 1.0;
+            renderClearUi(index);
+            saveSessionToDB();
+        }
+
+        function renderClearUi(index) {
+            const el = activeSlotsGrid.children[index]; el.classList.remove('occupied'); el.removeAttribute('draggable');
+            const content = el.querySelector('.slot-content'); content.textContent = 'Drop WAV here'; content.classList.add('slot-empty');
+            el.querySelector('.preview-slot-btn').style.display = 'none'; el.querySelector('.preview-slot-btn').textContent = '▶';
+            const canvas = el.querySelector('.micro-waveform'); if (canvas) { canvas.style.display = 'none'; const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); }
+            const durationTag = el.querySelector('.slot-duration'); if (durationTag) { durationTag.style.display = 'none'; durationTag.textContent = ''; }
+            const ind = el.querySelector('.conversion-indicator'); if (ind) { ind.style.display = 'none'; ind.innerHTML = ''; }
+            stopPreview(`slot-${index}`);
+        }
+
+        kitNameInput.oninput = () => {
+            const text = kitNameInput.value.trim().replace(/[^a-zA-Z0-9_\-]/g, '_') || "UntitledKit";
+            kitModel.kitName = text; advisoryFolderLabels.forEach(el => el.textContent = text);
+        };
+        kitNameInput.onchange = () => { pushHistoryState(); kitModel.kitName = kitNameInput.value.trim().replace(/[^a-zA-Z0-9_\-]/g, '_') || "UntitledKit"; saveSessionToDB(); };
+
+        function parseEldrumToInspector(file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const text = event.target.result, blocks = text.split(/\[\[key-zones\]\]/g).slice(1);
+                    for (let i = 0; i < 8; i++) {
+                        const targetUiNode = inspectSlotsGrid.children[i], contentContainer = targetUiNode.querySelector('.slot-content'), statusContainer = targetUiNode.querySelector('.inspect-val-label'), targetPitch = subtrackNotes[i];
+                        let foundBlock = null;
+                        for (let block of blocks) {
+                            const pitchMatch = block.match(/pitch\s*=\s*(\d+)/);
+                            if (pitchMatch && parseInt(pitchMatch[1], 10) === targetPitch) { foundBlock = block; break; }
+                        }
+                        if (foundBlock) {
+                            const fileMatch = foundBlock.match(/sample\s*=\s*['"]([^'"]+)['"]/) || foundBlock.match(/sample-slots\s*=\s*\[\s*\{\s*sample\s*=\s*['"]([^'"]+)['"]/);
+                            const velMatch = foundBlock.match(/velocity\s*=\s*([0-9.]+)/);
+                            if (fileMatch) {
+                                targetUiNode.classList.add('occupied-inspect'); contentContainer.textContent = fileMatch[1]; contentContainer.classList.remove('slot-empty');
+                                const rawVel = velMatch ? parseFloat(velMatch[1]) : 1.0; statusContainer.textContent = `VEL: ${Math.round(rawVel * 127)}`;
+                                continue;
+                            }
+                        }
+                        targetUiNode.classList.remove('occupied-inspect'); contentContainer.textContent = 'Empty Destination'; contentContainer.classList.add('slot-empty'); statusContainer.textContent = '';
+                    }
+                } catch (err) { alert("Unable to parse native .eldrum file configuration."); }
+            };
+            reader.readAsText(file);
+        }
+
+        importInspector.onchange = (e) => { const file = e.target.files[0]; if (file) parseEldrumToInspector(file); };
+        inspectSlotsGrid.addEventListener('dragenter', (e) => e.preventDefault());
+        inspectSlotsGrid.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; inspectSlotsGrid.style.backgroundColor = 'rgba(0,168,255,0.08)'; });
+        inspectSlotsGrid.addEventListener('dragleave', () => { inspectSlotsGrid.style.backgroundColor = ''; });
+        inspectSlotsGrid.addEventListener('drop', (e) => {
+            e.preventDefault(); inspectSlotsGrid.style.backgroundColor = '';
+            const file = e.dataTransfer.files[0]; if (file && file.name.toLowerCase().endsWith('.eldrum')) parseEldrumToInspector(file);
+        });
+
+        function encodeWAV16(audioBuffer) {
+            const format = 1, sampleRate = 48000, channels = 2, bitDepth = 16;
+            const leftData = audioBuffer.getChannelData(0);
+            const rightData = audioBuffer.numberOfChannels > 1 ? audioBuffer.getChannelData(1) : leftData;
+            const length = leftData.length * 2;
+            const interleaved = new Float32Array(length);
+            let writeIdx = 0;
+            for (let i = 0; i < leftData.length; i++) { interleaved[writeIdx++] = leftData[i]; interleaved[writeIdx++] = rightData[i]; }
+            const buffer = new ArrayBuffer(44 + interleaved.length * 2), view = new DataView(buffer);
+            const writeString = (offset, str) => { for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i)); };
+            writeString(0, 'RIFF'); view.setUint32(4, 36 + interleaved.length * 2, true);
+            writeString(8, 'WAVE'); writeString(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, format, true);
+            view.setUint16(22, channels, true); view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * channels * (bitDepth / 8), true);
+            view.setUint16(32, channels * (bitDepth / 8), true); view.setUint16(34, bitDepth, true); writeString(36, 'data'); view.setUint32(40, interleaved.length * 2, true);
+            let offset = 44;
+            for (let i = 0; i < interleaved.length; i++, offset += 2) {
+                let s = Math.max(-1, Math.min(1, interleaved[i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+            return new Blob([view], { type: 'audio/wav' });
+        }
+
+        async function resampleAudioFile(file, slot = {}) {
+            const targetSampleRate = 48000;
+            let decodedBuffer = audioBufferCache.get(slot.filename);
+            let tempCtx = null;
+            if (!decodedBuffer) {
+                tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const rawBuffer = await file.arrayBuffer();
+                try {
+                    decodedBuffer = await tempCtx.decodeAudioData(rawBuffer.slice(0));
+                } catch (e) {
+                    const cleaned = stripWavMetadata(skipId3Tag(rawBuffer.slice(0)));
+                    decodedBuffer = await tempCtx.decodeAudioData(cleaned);
+                }
+            }
+
+            const startOffset = decodedBuffer.duration * (slot.trimStart || 0.0);
+            const playDuration = decodedBuffer.duration * ((slot.trimEnd || 1.0) - (slot.trimStart || 0.0));
+
+            const offlineCtx = new OfflineAudioContext(2, Math.max(1, Math.ceil(playDuration * targetSampleRate)), targetSampleRate);
+            const source = offlineCtx.createBufferSource();
+            source.buffer = decodedBuffer;
+            source.connect(offlineCtx.destination);
+            source.start(0, startOffset, playDuration);
+
+            const renderedBuffer = await offlineCtx.startRendering();
+            if (tempCtx) tempCtx.close();
+
+            if (normalizeCheck.checked) {
+                let maxVal = 0.0001;
+                for (let c = 0; c < renderedBuffer.numberOfChannels; c++) {
+                    const data = renderedBuffer.getChannelData(c);
+                    for (let j = 0; j < data.length; j++) {
+                        const val = Math.abs(data[j]); if (val > maxVal) maxVal = val;
+                    }
+                }
+                const targetAmp = Math.pow(10, -1.0 / 20);
+                const scaleFactor = targetAmp / maxVal;
+                for (let c = 0; c < renderedBuffer.numberOfChannels; c++) {
+                    const data = renderedBuffer.getChannelData(c);
+                    for (let j = 0; j < data.length; j++) data[j] *= scaleFactor;
+                }
+            }
+            return encodeWAV16(renderedBuffer);
+        }
+
+        exportBtn.onclick = async () => {
+            const hasWavs = kitModel.slots.some(slot => slot.filename !== null);
+            if (!hasWavs) { alert("Please drop and map at least one audio file before exporting."); return; }
+            if (typeof JSZip === 'undefined') { alert("JSZip library could not be loaded."); return; }
+            exportBtn.disabled = true; const originalText = exportBtn.textContent; exportBtn.textContent = "Resampling...";
+            try {
+                const zip = new JSZip(), kitName = kitModel.kitName || "MyCustomKit", kitFolder = zip.folder(kitName);
+                let tomlOutput = `# ELEKTRON DRUM SET MAPPING FORMAT\nversion = 0\nname = "${kitName}"\n\n`;
+                for (let i = 0; i < 8; i++) {
+                    const slot = kitModel.slots[i]; if (!slot.filename) continue;
+                    const pitchVal = subtrackNotes[i], velocityNormalized = (slot.velocity / 127).toFixed(8);
+                    tomlOutput += `[[key-zones]]\npitch = ${pitchVal}\nkey-center = ${pitchVal}.0\n[[key-zones.velocity-layers]]\nvelocity = ${velocityNormalized}\nstrategy = "${slot.strategy || 'Forward'}"\n[[key-zones.velocity-layers.sample-slots]]\nsample = "${slot.filename}"\n\n`;
+                    const rawFile = globalFilePool.get(slot.filename);
+                    if (rawFile) {
+                        exportBtn.textContent = `Converting Slot [0${i+1}]...`;
+                        const processedWavBlob = await resampleAudioFile(rawFile, slot);
+                        kitFolder.file(slot.filename, processedWavBlob);
+                    }
+                }
+                kitFolder.file(`${kitName}.eldrum`, tomlOutput); exportBtn.textContent = "Packaging Kit...";
+                const content = await zip.generateAsync({ type: "blob" });
+                const url = URL.createObjectURL(content), downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", url); downloadAnchor.setAttribute("download", `${kitName}.zip`);
+                document.body.appendChild(downloadAnchor); downloadAnchor.click(); downloadAnchor.remove(); URL.revokeObjectURL(url);
+            } catch (err) { console.error(err); alert("Error exporting kit package."); } finally { exportBtn.disabled = false; exportBtn.textContent = originalText; }
+        };
+
+        // Bank roll kit logic
+        rollKitBtn.addEventListener('click', () => {
+            const activeSet = poolBanks[currentPoolBank];
+            if (!activeSet || activeSet.size === 0) {
+                alert("Current Pool Bank is empty! Drag and drop some audio samples first.");
+                return;
+            }
+            pushHistoryState();
+            const samples = Array.from(activeSet);
+            for (let i = 0; i < 8; i++) {
+                const randomSample = samples[Math.floor(Math.random() * samples.length)];
+                assignFileToSlot(i, randomSample, 100);
+            }
+            updateSidebarHighlights();
+            saveSessionToDB();
+        });
+
+        // Clear Bank Logic
+        clearDumpBtn.addEventListener('click', () => {
+            const activeSet = poolBanks[currentPoolBank];
+            if (!activeSet || activeSet.size === 0) return;
+            if (confirm(`Are you sure you want to empty Pool Bank ${currentPoolBank}?`)) {
+                activeSet.forEach(sanitized => {
+                    stopPreview(`pool-${sanitized}`);
+                    globalFilePool.delete(sanitized);
+                    globalFileCategories.delete(sanitized);
+                    globalFileOriginalExts.delete(sanitized);
+                    audioBufferCache.delete(sanitized);
+                });
+                activeSet.clear();
+                renderPoolItemsFromMap();
+                updateSidebarHighlights();
+                saveSessionToDB();
+            }
+        });
+
+        // Reset slots trigger
+        clearSlotsBtn.addEventListener('click', () => {
+            pushHistoryState();
+            for (let i = 0; i < 8; i++) {
+                clearSlot(i);
+            }
+            updateSidebarHighlights();
+            saveSessionToDB();
+        });
+
+        function syncUiFromModel() {
+            for (let i = 0; i < 8; i++) {
+                const slot = kitModel.slots[i];
+                if (slot && slot.filename) {
+                    assignFileToSlot(i, slot.filename, slot.velocity, slot.strategy, slot.trimStart, slot.trimEnd);
+                    activeSlotsGrid.children[i].querySelector('.slot-category-select').value = slot.category || defaultCategories[i];
+                    activeSlotsGrid.children[i].querySelector('.slot-strategy-select').value = slot.strategy || 'Forward';
+                } else {
+                    clearSlot(i);
+                }
+            }
+            updateSidebarHighlights();
+            updateUndoRedoButtons();
+        }
+
+        initInspectorBtn.onclick = () => { importInspector.value = ""; renderBlankInspector(); };
+        
+        // Final Application bootstrap
+        renderBlankInspector();
+        loadSessionFromDB().then(() => {
+            updateUndoRedoButtons();
+        });
+    </script>
+</body>
+</html>

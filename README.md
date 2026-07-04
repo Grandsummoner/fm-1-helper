@@ -6,6 +6,8 @@ By handling file resampling, metadata mapping, and visual trimmer cropping compl
 
 ---
 
+![Module Graphic](./res/Subtraktor.png)
+
 ## 🚀 Live Application
 Use the hosted web utility directly in your browser:  
 👉 **https://github.com/Grandsummoner/subtraktor/blob/main/Subtraktor.html**

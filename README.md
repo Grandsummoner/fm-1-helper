@@ -10,7 +10,7 @@ By handling file resampling, metadata mapping, and visual trimmer cropping compl
 
 ## 🚀 Live Application
 Use the hosted web utility directly in your browser:  
-👉 **https://github.com/Grandsummoner/subtraktor/blob/main/Subtraktor.html**
+👉 **https://Grandsummoner.github.io/subtraktor/Subtraktor.html**
 
 ---
 

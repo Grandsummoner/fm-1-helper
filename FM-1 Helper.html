@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FM-1 SysEx Patch Curator Pro</title>
+    <style>
+        :root {
+            --bg-main: #121214;
+            --bg-panel: #1a1a1e;
+            --border-color: #2d2d34;
+            --text-main: #e2e2e6;
+            --text-muted: #a1a1aa;
+            --accent-green: #00e676;
+            --accent-blue: #00b0ff;
+            --accent-red: #ff5252;
+            --accent-purple: #b388ff;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            overflow: hidden; /* Prevents global page bounce */
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; font-weight: 600; }
+
+        .midi-connect-btn {
+            background-color: #1c2e24;
+            border: 1px solid #2e7d32;
+            color: var(--accent-green);
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .midi-connect-btn:hover { background-color: #253d30; }
+
+        .advisory {
+            background-color: #1e222b;
+            border-left: 4px solid var(--accent-blue);
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .advisory summary {
+            padding: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--accent-blue);
+        }
+
+        .advisory-content {
+            padding: 0 15px 15px 15px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .workspace {
+            display: grid;
+            /* Layout: Narrowed Source Selection (0.6fr), Pool at 80% (1.2fr), Wide Split Banks (2.2fr) */
+            grid-template-columns: 0.6fr 1.2fr 2.2fr;
+            gap: 20px;
+            height: calc(100vh - 180px);
+        }
+
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        h2 { margin-top: 0; margin-bottom: 15px; font-size: 1.1rem; color: #ffffff; }
+
+        .drop-zone {
+            border: 2px dashed #44444f;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 4px;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            background-color: rgba(255,255,255,0.01);
+            text-align: center;
+            padding: 20px;
+            cursor: pointer;
+        }
+        .drop-zone.dragover {
+            border-color: var(--accent-blue);
+            background-color: rgba(0, 176, 255, 0.05);
+        }
+
+        .file-buttons { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+        .btn-file {
+            background-color: #2d2d34; color: var(--text-main);
+            border: none; padding: 10px; border-radius: 4px; cursor: pointer;
+            font-weight: 500; text-align: center;
+        }
+        .btn-file:hover { background-color: #3e3e47; }
+
+        .controls-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; flex-shrink: 0; }
+        
+        .search-bar {
+            flex-grow: 1; padding: 8px; background-color: #26262b;
+            border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-main);
+        }
+
+        .btn-danger-outline {
+            background: none; border: 1px solid var(--accent-red); color: var(--accent-red);
+            padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem;
+        }
+        .btn-danger-outline:hover { background-color: rgba(255, 82, 82, 0.1); }
+
+        .table-container {
+            flex-grow: 1; overflow-y: auto;
+            border: 1px solid var(--border-color); border-radius: 4px;
+            background-color: #141416;
+        }
+
+        /* Fixed: Use height: 0 + flex-grow to contain tables exactly within viewport budget */
+        .bank-split-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            height: 0;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; table-layout: fixed; }
+        
+        /* Fixed: Optimized padding heights to guarantee no vertical clipping on 1080p canvas scopes */
+        th, td { padding: 6px 8px; border-bottom: 1px solid var(--border-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        
+        th { 
+            background-color: #222227; position: sticky; top: 0; 
+            color: var(--text-muted); font-weight: 500; z-index: 10; cursor: pointer;
+        }
+        th:hover { color: var(--text-main); }
+        tr:hover { background-color: rgba(255,255,255,0.02); }
+
+        /* Drag & Drop Utility Classes */
+        tr.draggable { cursor: grab; }
+        tr.draggable:active { cursor: grabbing; }
+        tr.drag-over { border-top: 2px solid var(--accent-blue); background-color: rgba(0, 176, 255, 0.1); }
+
+        .btn-icon { background: none; border: none; cursor: pointer; font-size: 1.1rem; padding: 0 5px; }
+        .remove-icon { color: var(--accent-red); font-weight: bold; }
+
+        .bank-tabs { display: flex; gap: 5px; flex-grow: 1; }
+        .bank-tab {
+            padding: 6px 12px; background-color: #2d2d34; border: none;
+            color: var(--text-muted); border-radius: 4px 4px 0 0; cursor: pointer;
+        }
+        .bank-tab.active { background-color: var(--accent-purple); color: #fff; font-weight: bold; }
+        
+        .btn-dice {
+            background-color: #2d2d34; border: 1px solid var(--border-color);
+            color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer;
+            display: flex; align-items: center; gap: 5px; font-size: 0.85rem;
+        }
+        .btn-dice:hover { background-color: #3e3e47; }
+
+        .empty-slot { color: #555; font-style: italic; }
+
+        .action-block { display: flex; gap: 10px; margin-top: 15px; flex-shrink: 0; }
+        .btn-action { flex: 1; padding: 12px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; }
+        .btn-download { background-color: #2d2d34; color: var(--text-main); }
+        .btn-download:hover { background-color: #3e3e47; }
+        .btn-send { background-color: #0288d1; color: white; }
+        .btn-send:hover { background-color: #039be5; }
+        
+        input[type="file"] { display: none; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>FM-1 SysEx Patch Curator</h1>
+        <button class="midi-connect-btn" id="midiConnect">🔌 Request Web MIDI Access</button>
+    </header>
+
+    <details class="advisory">
+        <summary>ℹ️ Usage Guide for M-VAVE FM-1 Helper</summary>
+        <div class="advisory-content">
+            <strong>What is this?</strong> This utility transitions features from the static template layout observed in your reference file into a functional, data-driven compiler designed for custom DX7 SysEx creation. <br>
+            <strong>Why is this beneficial?</strong> Unfilled destination slots map automatically to clean "INIT VOICE" algorithms. This mechanism safeguards your M-VAVE FM-1 from performance glitches or data dropouts caused by parsing incomplete or truncated binary streams.  <br>
+			<strong>💾 Export Active Bank .SYX</strong> (or use the MIDI send button): it exports exactly one bank of 32 patches at a time — specifically whichever bank tab is currently active.
+        </div>
+    </details>
+
+    <main class="workspace">
+        
+        <section class="panel">
+            <h2>1. Source Importer</h2>
+            <div class="drop-zone" id="dropZone">
+                <p id="dropZoneText">Drop standard 4104-byte .SYX files or folders here</p>
+                <div class="file-buttons">
+                    <label class="btn-file">
+                        Select SysEx Files
+                        <input type="file" id="fileInput" multiple accept=".syx,.bin">
+                    </label>
+                    <label class="btn-file">
+                        Select Folder
+                        <input type="file" id="folderInput" webkitdirectory directory multiple>
+                    </label>
+                </div>
+            </div>
+            <div id="importStatus" style="font-size: 0.8rem; color: var(--text-muted);">
+                Status: Ready for file ingestion.
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>2. Global Preset Pool (<span id="poolCount">0</span>)</h2>
+            <div class="controls-row">
+                <input type="text" id="searchBar" class="search-bar" placeholder="Search imported patches...">
+                <button class="btn-danger-outline" id="clearPoolBtn">Clear All</button>
+            </div>
+            <div class="table-container">
+                <table id="poolTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortPool('name')" style="width: 45%;">Name ↕</th>
+                            <th onclick="sortPool('type')" style="width: 25%;">Type ↕</th>
+                            <th onclick="sortPool('source')" style="width: 20%;">Source ↕</th>
+                            <th style="width: 10%; text-align: center;">🗑️</th>
+                        </tr>
+                    </thead>
+                    <tbody id="repoBody">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel">
+            <h2>3. FM-1 Destination Banks</h2>
+            <div class="controls-row">
+                <div class="bank-tabs">
+                    <button class="bank-tab active" data-bank="A">Bank A</button>
+                    <button class="bank-tab" data-bank="B">Bank B</button>
+                    <button class="bank-tab" data-bank="C">Bank C</button>
+                    <button class="bank-tab" data-bank="D">Bank D</button>
+                </div>
+                <button class="btn-dice" id="randomizeBtn">🎲 Roll</button>
+                <button class="btn-dice" id="packBtn" title="Shift active patches to clear initial empty gaps">🔄 Pack</button>
+                <button class="btn-danger-outline" id="clearBankBtn">Clear Bank</button>
+            </div>
+            
+            <div class="bank-split-container">
+                <div class="table-container">
+                    <table id="bankTableLeft">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%;">Slot</th>
+                                <th onclick="sortBank('name')" style="width: 40%;">Name ↕</th>
+                                <th onclick="sortBank('type')" style="width: 25%;">Type ↕</th>
+                                <th onclick="sortBank('source')" style="width: 12%;">Src ↕</th>
+                                <th style="width: 8%; text-align: center;">🗑️</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bankBodyLeft">
+                            </tbody>
+                    </table>
+                </div>
+
+                <div class="table-container">
+                    <table id="bankTableRight">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%;">Slot</th>
+                                <th onclick="sortBank('name')" style="width: 40%;">Name ↕</th>
+                                <th onclick="sortBank('type')" style="width: 25%;">Type ↕</th>
+                                <th onclick="sortBank('source')" style="width: 12%;">Src ↕</th>
+                                <th style="width: 8%; text-align: center;">🗑️</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bankBodyRight">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="action-block">
+                <button class="btn-action btn-download" id="exportBtn">💾 Export Active Bank .SYX</button>
+                <button class="btn-action btn-send" id="midiSendBtn">⚡ Send Active Bank to FM-1</button>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // Global State Tree
+        let globalPool = []; 
+        let currentBank = 'A';
+        const banks = {
+            A: Array(32).fill(null),
+            B: Array(32).fill(null),
+            C: Array(32).fill(null),
+            D: Array(32).fill(null)
+        };
+
+        // Column Sorting States
+        let sortStatePool = { col: null, asc: true };
+        let sortStateBank = { col: null, asc: true };
+
+        // Standard DX7 Voice Architecture Constraints
+        const DX7_VOICE_SIZE = 128;
+        const DX7_NAME_OFFSET = 118;
+        const DX7_NAME_LENGTH = 10;
+        
+        const INIT_VOICE_DATA = new Uint8Array([
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+            0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 32,73,78,73,84,32,86,79,73,67
+        ]);
+
+        // DOM Selectors
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const folderInput = document.getElementById('folderInput');
+        const repoBody = document.getElementById('repoBody');
+        const bankBodyLeft = document.getElementById('bankBodyLeft');
+        const bankBodyRight = document.getElementById('bankBodyRight');
+        const poolCount = document.getElementById('poolCount');
+        const searchBar = document.getElementById('searchBar');
+        const importStatus = document.getElementById('importStatus');
+        
+        const clearPoolBtn = document.getElementById('clearPoolBtn');
+        const clearBankBtn = document.getElementById('clearBankBtn');
+        const randomizeBtn = document.getElementById('randomizeBtn');
+        const packBtn = document.getElementById('packBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const midiSendBtn = document.getElementById('midiSendBtn');
+        const midiConnectBtn = document.getElementById('midiConnect');
+
+        let midiOutput = null;
+        let draggedItem = null;
+
+        // Initialize empty rendering maps
+        renderRepo();
+        renderActiveBank();
+
+        // Categorization Heuristic
+        function getCategory(name) {
+            const n = name.toUpperCase();
+            if(n.includes("BASS") || n.includes("BS")) return "Bass";
+            if(n.includes("EP") || n.includes("PIANO") || n.includes("CLAV") || n.includes("KEY")) return "Keys";
+            if(n.includes("PAD") || n.includes("STR") || n.includes("CHOIR") || n.includes("VOC")) return "Pad/String";
+            if(n.includes("BRASS") || n.includes("HORN") || n.includes("TRUMP")) return "Brass";
+            if(n.includes("LEAD") || n.includes("SYN")) return "Synth Lead";
+            if(n.includes("PERC") || n.includes("DRUM") || n.includes("BELL")) return "Perc/Bell";
+            return "Other";
+        }
+
+        // Event Drivers
+        fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+        folderInput.addEventListener('change', (e) => handleFiles(e.target.files));
+        searchBar.addEventListener('input', renderRepo);
+        clearPoolBtn.addEventListener('click', () => { globalPool = []; renderRepo(); });
+        clearBankBtn.addEventListener('click', () => { banks[currentBank] = Array(32).fill(null); renderActiveBank(); });
+        randomizeBtn.addEventListener('click', randomizeActiveBank);
+        packBtn.addEventListener('click', compactBankSlots);
+        exportBtn.addEventListener('click', exportSysExFile);
+        midiConnectBtn.addEventListener('click', requestMidiAccess);
+        midiSendBtn.addEventListener('click', sendSysExViaMidi);
+
+        // UI File Drag-Drop Interfaces
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+        dropZone.addEventListener('click', (e) => {
+            if(e.target !== fileInput && e.target !== folderInput && !e.target.classList.contains('btn-file')) {
+                fileInput.click();
+            }
+        });
+
+        document.querySelectorAll('.bank-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('.bank-tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                currentBank = e.target.getAttribute('data-bank');
+                renderActiveBank();
+            });
+        });
+
+        // Binary File Decoders
+        function handleFiles(files) {
+            let loadedFilesCount = 0;
+            let totalPatchesFound = 0;
+
+            Array.from(files).forEach(file => {
+                if (!file.name.toLowerCase().endsWith('.syx') && !file.name.toLowerCase().endsWith('.bin')) return;
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const buffer = new Uint8Array(e.target.result);
+                    if (buffer.length >= 4096) {
+                        let dataOffset = 0;
+                        for (let i = 0; i < buffer.length - 6; i++) {
+                            if (buffer[i] === 0xF0 && buffer[i+1] === 0x43 && buffer[i+3] === 0x09 && buffer[i+4] === 0x20) {
+                                dataOffset = i + 6;
+                                break;
+                            }
+                        }
+                        
+                        if (dataOffset === 0 && buffer.length === 4104) dataOffset = 6;
+
+                        for (let v = 0; v < 32; v++) {
+                            const voiceStart = dataOffset + (v * DX7_VOICE_SIZE);
+                            if (voiceStart + DX7_VOICE_SIZE <= buffer.length) {
+                                const voiceData = buffer.slice(voiceStart, voiceStart + DX7_VOICE_SIZE);
+                                let patchName = "";
+                                for (let n = 0; n < DX7_NAME_LENGTH; n++) {
+                                    const charCode = voiceData[DX7_NAME_OFFSET + n];
+                                    if(charCode >= 32 && charCode<= 126) patchName += String.fromCharCode(charCode);
+                                    else patchName += " ";
+                                }
+                                patchName = patchName.trim() || `Untitled Pch ${v+1}`;
+
+                                globalPool.push({
+                                    id: crypto.randomUUID(),
+                                    name: patchName,
+                                    type: getCategory(patchName),
+                                    rawData: voiceData,
+                                    source: file.name
+                                });
+                                totalPatchesFound++;
+                            }
+                        }
+                    }
+                    loadedFilesCount++;
+                    importStatus.innerText = `Ingested Context: Processed ${loadedFilesCount} files successfully. Unpacked ${totalPatchesFound} voices total.`;
+                    renderRepo();
+                };
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Sorting Logics
+        function sortPool(col) {
+            if (sortStatePool.col === col) sortStatePool.asc = !sortStatePool.asc;
+            else { sortStatePool.col = col; sortStatePool.asc = true; }
+            
+            globalPool.sort((a, b) => {
+                let valA = (a[col] || "").toLowerCase();
+                let valB = (b[col] || "").toLowerCase();
+                if (valA < valB) return sortStatePool.asc ? -1 : 1;
+                if (valA > valB) return sortStatePool.asc ? 1 : -1;
+                return 0;
+            });
+            renderRepo();
+        }
+
+        // Inside sorting routine we explicitly group active selections to avoid mixing empty rows
+        function sortBank(col) {
+            if (sortStateBank.col === col) sortStateBank.asc = !sortStateBank.asc;
+            else { sortStateBank.col = col; sortStateBank.asc = true; }
+
+            const activePatches = banks[currentBank].filter(p => p !== null);
+            activePatches.sort((a, b) => {
+                let valA = (a[col] || "").toLowerCase();
+                let valB = (b[col] || "").toLowerCase();
+                if (valA < valB) return sortStateBank.asc ? -1 : 1;
+                if (valA > valB) return sortStateBank.asc ? 1 : -1;
+                return 0;
+            });
+            
+            banks[currentBank] = [...activePatches];
+            while(banks[currentBank].length < 32) banks[currentBank].push(null);
+            renderActiveBank();
+        }
+
+        // Drag and Drop Logistics Row Configurator
+        function setupRowDrag(tr, type, indexOrId) {
+            tr.setAttribute('draggable', true);
+            tr.classList.add('draggable');
+            
+            tr.addEventListener('dragstart', (e) => {
+                draggedItem = { type, data: indexOrId };
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', JSON.stringify(draggedItem));
+                setTimeout(() => tr.style.opacity = '0.4', 0);
+            });
+            
+            tr.addEventListener('dragend', () => {
+                tr.style.opacity = '1';
+                draggedItem = null;
+                document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            });
+
+            tr.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                tr.classList.add('drag-over');
+            });
+
+            tr.addEventListener('dragleave', () => tr.classList.remove('drag-over'));
+
+            tr.addEventListener('drop', (e) => {
+                e.preventDefault();
+                tr.classList.remove('drag-over');
+                handleRowDrop(type, indexOrId);
+            });
+        }
+
+        function handleRowDrop(targetType, targetIndexOrId) {
+            if (!draggedItem) return;
+
+            // 1. Reorder inside Pool panel
+            if (draggedItem.type === 'pool' && targetType === 'pool') {
+                const sourceIdx = globalPool.findIndex(p => p.id === draggedItem.data);
+                const targetIdx = globalPool.findIndex(p => p.id === targetIndexOrId);
+                const [moved] = globalPool.splice(sourceIdx, 1);
+                globalPool.splice(targetIdx, 0, moved);
+                renderRepo();
+            }
+            // 2. Reorder or swap allocations directly across both destination bank blocks
+            else if (draggedItem.type === 'bank' && targetType === 'bank') {
+                const sourceIdx = draggedItem.data;
+                const targetIdx = targetIndexOrId;
+                const temp = banks[currentBank][targetIdx];
+                banks[currentBank][targetIdx] = banks[currentBank][sourceIdx];
+                banks[currentBank][sourceIdx] = temp;
+                renderActiveBank();
+            }
+            // 3. Drop from Pool into a targeted sub-column hardware slot frame
+            else if (draggedItem.type === 'pool' && targetType === 'bank') {
+                const patch = globalPool.find(p => p.id === draggedItem.data);
+                if (patch) {
+                    banks[currentBank][targetIndexOrId] = { ...patch };
+                    renderActiveBank();
+                }
+            }
+        }
+
+        // Render Pools 
+        function renderRepo() {
+            repoBody.innerHTML = "";
+            const searchStr = searchBar.value.toLowerCase();
+            const filtered = globalPool.filter(p => p.name.toLowerCase().includes(searchStr) || p.source.toLowerCase().includes(searchStr));
+            
+            poolCount.innerText = globalPool.length;
+
+            if (filtered.length === 0) {
+                repoBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:20px;">No presets matching.</td></tr>`;
+                return;
+            }
+
+            filtered.forEach(patch => {
+                const tr = document.createElement('tr');
+                setupRowDrag(tr, 'pool', patch.id);
+                
+                const tdName = document.createElement('td'); tdName.innerText = patch.name;
+                const tdType = document.createElement('td'); tdType.innerText = patch.type; tdType.style.color = "var(--text-muted)";
+                const tdSrc = document.createElement('td'); tdSrc.innerText = patch.source; tdSrc.style.color = "var(--text-muted)";
+
+                const tdAction = document.createElement('td'); tdAction.style.textAlign = "center";
+                const btnRemove = document.createElement('button');
+                btnRemove.className = "btn-icon remove-icon";
+                btnRemove.innerHTML = "×";
+                btnRemove.onclick = (e) => {
+                    e.stopPropagation();
+                    globalPool = globalPool.filter(p => p.id !== patch.id);
+                    renderRepo();
+                };
+                tdAction.appendChild(btnRemove);
+
+                tr.appendChild(tdName); tr.appendChild(tdType); tr.appendChild(tdSrc); tr.appendChild(tdAction);
+                repoBody.appendChild(tr);
+            });
+        }
+
+        // Split Layout Grid Active Bank Generator 
+        function renderActiveBank() {
+            bankBodyLeft.innerHTML = "";
+            bankBodyRight.innerHTML = "";
+            const currentList = banks[currentBank];
+
+            for (let i = 0; i < 32; i++) {
+                const tr = document.createElement('tr');
+                setupRowDrag(tr, 'bank', i);
+                
+                const tdSlot = document.createElement('td');
+                tdSlot.innerText = String(i + 1).padStart(2, '0');
+                tdSlot.style.color = "var(--text-muted)";
+                
+                const tdName = document.createElement('td');
+                const tdType = document.createElement('td');
+                const tdSrc = document.createElement('td');
+                const tdAction = document.createElement('td'); tdAction.style.textAlign = "center";
+
+                if (currentList[i]) {
+                    tdName.innerText = currentList[i].name;
+                    tdType.innerText = currentList[i].type || getCategory(currentList[i].name);
+                    tdType.style.color = "var(--text-muted)";
+                    tdSrc.innerText = currentList[i].source;
+                    tdSrc.style.color = "var(--text-muted)";
+
+                    const dropBtn = document.createElement('button');
+                    dropBtn.className = "btn-icon remove-icon";
+                    dropBtn.innerHTML = "×";
+                    dropBtn.onclick = (e) => { e.stopPropagation(); banks[currentBank][i] = null; renderActiveBank(); };
+                    tdAction.appendChild(dropBtn);
+                } else {
+                    tdName.innerText = "INIT VOICE"; tdName.className = "empty-slot";
+                    tdType.innerText = "-"; tdType.style.color = "#444";
+                    tdSrc.innerText = "-"; tdSrc.style.color = "#444";
+                }
+
+                tr.appendChild(tdSlot); tr.appendChild(tdName); tr.appendChild(tdType); tr.appendChild(tdSrc); tr.appendChild(tdAction);
+                
+                // Route between the two sub-column sets cleanly
+                if(i < 16) bankBodyLeft.appendChild(tr); 
+                else bankBodyRight.appendChild(tr);
+            }
+        }
+
+        // Utility Methods
+        function compactBankSlots() {
+            const activePatches = banks[currentBank].filter(p => p !== null);
+            banks[currentBank] = [...activePatches];
+            while(banks[currentBank].length < 32) banks[currentBank].push(null);
+            renderActiveBank();
+        }
+
+        function randomizeActiveBank() {
+            if (globalPool.length === 0) {
+                alert("The Global Pool contains zero nodes. Ingest source SysEx libraries first.");
+                return;
+            }
+            let poolShuffled = [...globalPool].sort(() => 0.5 - Math.random());
+            for (let i = 0; i < 32; i++) {
+                if (poolShuffled.length > 0) banks[currentBank][i] = { ...poolShuffled.pop() };
+                else {
+                    poolShuffled = [...globalPool].sort(() => 0.5 - Math.random());
+                    banks[currentBank][i] = { ...poolShuffled.pop() };
+                }
+            }
+            renderActiveBank();
+        }
+
+        function compileActiveBankBinary() {
+            const outputBuffer = new Uint8Array(4104);
+            outputBuffer[0] = 0xF0; outputBuffer[1] = 0x43; outputBuffer[2] = 0x00; 
+            outputBuffer[3] = 0x09; outputBuffer[4] = 0x20; outputBuffer[5] = 0x00; 
+
+            let runningChecksumSum = 0;
+            for (let v = 0; v < 32; v++) {
+                const patch = banks[currentBank][v];
+                const patchBytes = patch ? patch.rawData : INIT_VOICE_DATA;
+                const writeOffset = 6 + (v * DX7_VOICE_SIZE);
+                for (let b = 0; b < DX7_VOICE_SIZE; b++) {
+                    outputBuffer[writeOffset + b] = patchBytes[b];
+                    runningChecksumSum += patchBytes[b];
+                }
+            }
+            const checksum = (0x80 - (runningChecksumSum & 0x7F)) & 0x7F;
+            outputBuffer[4102] = checksum;
+            outputBuffer[4103] = 0xF7; 
+            return outputBuffer;
+        }
+
+        function exportSysExFile() {
+            const rawBinaryOutput = compileActiveBankBinary();
+            const blob = new Blob([rawBinaryOutput], { type: "application/octet-stream" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `FM1_Curation_Bank_${currentBank}_${new Date().toISOString().slice(0,10)}.syx`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Web MIDI Handshaking Subsystems
+        function requestMidiAccess() {
+            if (!navigator.requestMIDIAccess) {
+                alert("Web MIDI is not supported by your browser engine (Chrome/Edge recommended).");
+                return;
+            }
+            navigator.requestMIDIAccess({ sysex: true })
+                .then(midiAccess => {
+                    const outputs = Array.from(midiAccess.outputs.values());
+                    if (outputs.length === 0) {
+                        importStatus.innerText = "MIDI Warning: Access granted, but no hardware destinations found.";
+                        return;
+                    }
+                    midiOutput = outputs[0];
+                    midiConnectBtn.innerText = `🟢 Connected: ${midiOutput.name}`;
+                    midiConnectBtn.style.backgroundColor = "#122c1e";
+                    importStatus.innerText = `Ready to pipeline to: ${midiOutput.name}`;
+                })
+                .catch(err => {
+                    alert(`Web MIDI device configuration handshake error requested rejection: ${err}`);
+                });
+        }
+
+        function sendSysExViaMidi() {
+            if (!midiOutput) {
+                alert("Active hardware destination interface mapping node undefined. Complete step 'Request Web MIDI Access' first.");
+                return;
+            }
+            const payloadBytes = compileActiveBankBinary();
+            try {
+                midiOutput.open().then(() => {
+                    midiOutput.send(payloadBytes);
+                    importStatus.innerText = `MIDI Status: Dump safely sent to ${midiOutput.name}. Check your hardware screen!`;
+                    alert("Data transmitted! Check your FM-1 screen.");
+                }).catch(err => {
+                    alert(`Failed to open MIDI port. It may be in use by another app or DAW. Error: ${err}`);
+                });
+            } catch(e) {
+                alert(`SysEx pipeline transmission interface execution block hit error conditions: ${e}`);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # M-Wave FM-1 SysEx Patch Curator Pro
 
-A web-based utility designed for the **M-VAVE FM-1** that enables users to curate, manage, and compile custom DX7-compatible SysEx banks. This tool streamlines the process of ingesting voice data and preparing stable, bank-ready files for hardware transmission.
+A web-based utility designed for the **M-VAVE FM-1** that enables users to curate, manage, and compile custom DX7-compatible SysEx banks. This tool streamlines the process of ingesting voice data and preparing stable, bank-ready files for hardware transmission. [Start Here](https://grandsummoner.github.io/fm-1-helper/FM1-Helper.html)
 
 ---
 

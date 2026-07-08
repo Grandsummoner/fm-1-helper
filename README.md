@@ -40,5 +40,3 @@ A web-based utility designed for the **M-VAVE FM-1** that enables users to curat
 * **Browser Permissions**: Ensure your browser is allowed to access MIDI devices via the site settings.
 
 ---
-
-> **Note:** This utility is provided for educational and creative use. Always back up your existing hardware data before performing a bulk SysEx dump[cite: 1].

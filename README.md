@@ -4,7 +4,7 @@ A web-based utility designed for the **M-VAVE FM-1** that enables users to curat
 
 ---
 
-![Module Graphic](<./res/FM-1-Helper.png>)
+![Module Graphic](./res/FM-1-Helper.png)
 
 ## Features
 
